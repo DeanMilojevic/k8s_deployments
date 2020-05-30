@@ -2,7 +2,7 @@
   <img alt="k8s" src="./resources/k8s.svg" />
 </p>
 
-# K8s Deployments
+#
 
 One of the best features of the k8s for developers is having a lot of flexibility when deploying the application. The k8s out of the box comes with some of the best practices that are out there and all of them enable us to have a `zero-downtime` deployment. This simply means that we can release a new version of the software without having an impact on the end user. The types of the deployments we can achieve using k8s are:
 
