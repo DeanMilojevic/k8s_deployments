@@ -30,3 +30,59 @@ When the deployment is started it goes through couple of "moves" to ensure that 
 <p align=center>
   <img alt="rolliing upadte" src="./resources/rolling_update.svg" />
 </p>
+
+Now let us look an example of the rolling update declared declaratively (using `YAML`):
+
+```yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5       # how many ReplicaSets to keep in history (default is 10) to allow the rollback back
+  minReadySeconds: 1            # number of seconds before pod is considered health and can start handling requests
+  progressDeadlineSeconds: 60   # how long to wait before reporting that deployment is stalled
+  strategy:                     # this is by default, so need to add a strategy if's RollingUpdate (only if we wanna do Recreate)
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1               # how many pods above replicas count it can create during rolling update (25% by default)
+      maxUnavailable: 1         # how many can be unavailable during the rolling update (25% by default)
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:alpine
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+```
+
+To apply this deployment to our cluster we can use the following command:
+
+```bash
+# --record => save this deployment in the history to be used in the case of rollback
+kubectl apply -f src/rollingupdate.deployment.yaml --record
+```
+
+Now when we check the history of the rollout we can see this information:
+
+```bash
+# we can check the status of the specific deployment
+k rollout status deployment frontend
+deployment "frontend" successfully rolled out
+
+kubectl rollout history deployment frontend
+deployment.apps/frontend
+REVISION  CHANGE-CAUSE
+1         kubectl apply --filename=src/rollingupdate.deployment.yaml --record=true
+```

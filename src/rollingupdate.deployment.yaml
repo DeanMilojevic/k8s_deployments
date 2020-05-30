@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5       # how many ReplicaSets to keep in history (default is 10) to allow the rollback back
+  minReadySeconds: 1            # number of seconds before pod is considered health and can start handling requests
+  progressDeadlineSeconds: 60   # how long to wait before reporting that deployment is stalled
+  strategy:                     # this is by default, so need to add a strategy if's RollingUpdate (only if we wanna do Recreate)
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1               # how many pods above replicas count it can create during rolling update (25% by default)
+      maxUnavailable: 1         # how many can be unavailable during the rolling update (25% by default)
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:alpine
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
