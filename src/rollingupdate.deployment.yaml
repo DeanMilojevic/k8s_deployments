@@ -5,7 +5,7 @@ metadata:
   labels:
     tier: frontend
 spec:
-  replicas: 2
+  replicas: 5
   revisionHistoryLimit: 5       # how many ReplicaSets to keep in history (default is 10) to allow the rollback back
   minReadySeconds: 1            # number of seconds before pod is considered health and can start handling requests
   progressDeadlineSeconds: 60   # how long to wait before reporting that deployment is stalled

@@ -86,3 +86,62 @@ deployment.apps/frontend
 REVISION  CHANGE-CAUSE
 1         kubectl apply --filename=src/rollingupdate.deployment.yaml --record=true
 ```
+
+Ok, now that our deployment works we can experiment with rolling update. For this example (`/src/rollingupdate.deployment.yaml`) the simplest way is to change is to change the version of the *nginx* container being used (and scale the number of pods just to see it in action easier). Now let us assume that we did this, so let us apply first version with a lower number and then change it to latest (what is currently) and then apply that. To find a version of *nginx* you can check it at [Docker Hub](https://hub.docker.com/_/nginx).
+
+```bash
+kubectl apply -f src/rollingupdate.deployment.yaml --record
+
+# let us also apply a load balancing service
+kubectl apply -f src/rollingudate.service.yaml --record
+
+# now we can change back to the latest version of the nginx in the rollingupdate.deployment.yaml
+kubectl apply -f src/rollingupdate.deployment.yaml --record
+deployment.apps/frontend configured
+
+# I have configure to 5 replicas, but here we can see that at one point there was 6
+kubectl get all
+NAME                            READY   STATUS              RESTARTS   AGE
+pod/frontend-7978bd5598-gzd9q   0/1     ContainerCreating   0          0s
+pod/frontend-8987bb8d9-2pt9z    1/1     Running             0          47s
+pod/frontend-8987bb8d9-8pddk    1/1     Running             0          47s
+pod/frontend-8987bb8d9-czm9n    1/1     Running             0          47s
+pod/frontend-8987bb8d9-jw4qg    1/1     Terminating         0          47s
+pod/frontend-8987bb8d9-rgg6d    1/1     Running             0          47s
+
+NAME                    TYPE           CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE
+service/kubernetes      ClusterIP      10.96.0.1     <none>        443/TCP        6d
+service/nginx-service   LoadBalancer   10.99.86.49   localhost     80:30780/TCP   42s
+
+NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/frontend   4/5     1            4           47s
+
+NAME                                  DESIRED   CURRENT   READY   AGE
+replicaset.apps/frontend-7978bd5598   2         1         0       0s
+replicaset.apps/frontend-8987bb8d9    4         4         4       47s
+
+```
+
+Also now that we check the history of the deployments we should see this:
+
+```bash
+kubectl rollout history deployment frontend
+deployment.apps/frontend
+REVISION  CHANGE-CAUSE
+1         kubectl apply --filename=src/rollingupdate.deployment.yaml --record=true
+2         kubectl apply --filename=src/rollingupdate.deployment.yaml --record=true
+```
+
+Now we can rollback the deployment with the following command:
+
+```bash
+kubectl rollout undo deployment frontend
+deployment.apps/frontend rolled back
+
+# to verify the rollback exec into the pod
+kubectl exec frontend-8987bb8d9-4hmht -it sh # get the pods using kubectl get pods
+
+# within the pod run the following command
+nginx -v
+nginx version: nginx/1.16.1 # latest version at this point of nginx is 1.17.1
+```
