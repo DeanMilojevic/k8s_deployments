@@ -28,7 +28,7 @@ When the deployment is started it goes through couple of "moves" to ensure that 
 5. Keeps going till all pods are "migrated" to the new desired state
 
 <p align=center>
-  <img alt="rolliing upadte" src="./resources/rolling_update.svg" />
+  <img alt="rolliing upadate" src="./resources/rolling_update.svg" />
 </p>
 
 Now let us look an example of the rolling update declared declaratively (using `YAML`):
@@ -145,3 +145,11 @@ kubectl exec frontend-8987bb8d9-4hmht -it sh # get the pods using kubectl get po
 nginx -v
 nginx version: nginx/1.16.1 # latest version at this point of nginx is 1.17.1
 ```
+
+## Canary deployments
+
+Now let us talk about an awesome way, that we also get for "free" with k8s, that allows us to test our new feature in a controlled way. The canary deployment allows you to run in parallel 2 versions of your application. You can route the traffic towards them based on some rules you setup. Lets say that rule can be that 5% of traffic goes to the new version of the software in the cluster and 95% goes to the current version running within the cluster. Canary release is a technique to reduce the risk of introducing a new software version in production by slowly rolling out the change to a small subset of users before rolling it out to the entire infrastructure and making it available to everybody (an take on the definition of the canary release from the internet).
+
+<p align=center>
+  <img alt="canary release" src="./resources/canary.svg" />
+</p>
