@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
+  labels:
+    tier: frontend
 spec:
   replicas: 2
   revisionHistoryLimit: 5       # how many ReplicaSets to keep in history (default is 10) to allow the rollback back
@@ -14,14 +16,14 @@ spec:
       maxUnavailable: 1         # how many can be unavailable during the rolling update (25% by default)
   selector:
     matchLabels:
-      app: frontend
+      tier: frontend
   template:
     metadata:
       labels:
-        app: frontend
+        tier: frontend
     spec:
       containers:
-      - name: frontend
+      - name: nginx
         image: nginx:alpine
         resources:
           limits:
