@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary-frontend
+  labels:
+    tier: frontend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 1
+  progressDeadlineSeconds: 60
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80

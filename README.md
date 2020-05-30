@@ -153,3 +153,36 @@ Now let us talk about an awesome way, that we also get for "free" with k8s, that
 <p align=center>
   <img alt="canary release" src="./resources/canary.svg" />
 </p>
+
+The canary deployment involves the following resources:
+
+1. Service that will route traffic between the deployments
+2. Deployment that will be the current desired state
+3. Deployment that has the new desired state that we wish to test
+
+For sake of testing I created the 2 simple examples using nginx. Tho that is not enough I `exec` into the 1 pod that was in the canary deployment and manually changed `html`. So down bellow is the result of running the deployments:
+
+```bash
+kubectl apply -f src/canary.current.deployment.yaml --record
+...
+kubectl apply -f src/new.current.deployment.yaml --record
+...
+kubectl apply -f src/canary.service.yaml
+...
+
+# now some commands to exec and change the file that not gonna show, or if you wanna make it simpler just use 2 different container of some test app you have
+
+# now let us run some requests and we should see something similar like bellow
+ http GET http://localhost | grep canary
+<title>Welcome to nginx-canary!</title>
+❯ http GET http://localhost | grep canary
+❯ http GET http://localhost | grep canary
+❯ http GET http://localhost | grep canary
+❯ http GET http://localhost | grep canary
+❯ http GET http://localhost | grep canary
+❯ http GET http://localhost | grep canary
+<title>Welcome to nginx-canary!</title>
+❯ http GET http://localhost | grep canary
+```
+
+The process is same as any other deployment. So simple and yet so powerful.
