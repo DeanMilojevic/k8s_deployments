@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+      role: blue
+  template:
+    metadata:
+      labels:
+        app: nginx
+        role: blue
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.16-alpine
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-test-green
+  labels:
+    app: nginx
+    role: green
+    env: test
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+    role: green
+  ports:
+  - port: 8001      # our test port
+    targetPort: 80

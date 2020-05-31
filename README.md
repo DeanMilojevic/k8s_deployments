@@ -172,7 +172,7 @@ kubectl apply -f src/canary.service.yaml
 
 # now some commands to exec and change the file that not gonna show, or if you wanna make it simpler just use 2 different container of some test app you have
 
-# now let us run some requests and we should see something similar like bellow
+# now let us run some requests and we should see something similar like bellow (empty responses indicate that current state pods where hit)
  http GET http://localhost | grep canary
 <title>Welcome to nginx-canary!</title>
 ❯ http GET http://localhost | grep canary
@@ -186,3 +186,231 @@ kubectl apply -f src/canary.service.yaml
 ```
 
 The process is same as any other deployment. So simple and yet so powerful.
+
+## Blue/Green (A/B) deployments
+
+This one is on similar note of the canary release, with a subtle but important difference. There will be 2 clusters (current and new desired state), tho this time the traffic from the users will not be routed. This kind of deployments is usually meant for verification purposes within the team or to perform some user testing that is closed and needed to be opted in (or on prem, whatever works for you).
+
+ The blue-green deployment approach does this by ensuring you have two production environments. They need to be configured the same as possible. In short, 2 copies of the environment you want to test your changes against. Not the topic of the story, but with terraform that is what you get, that is why I love infrastructure as a code. The difference between them is that one is serving the end user traffic and the other one is going to serve the traffic that is meant for testing (by QA team, stakeholders, etc.). The `green` is not meant for the end user (contrary to the canary releases). Then when it is all verified an tested, we can switch the traffic routing to the `green` part and that becomes a new desired state.
+
+ <p align=center>
+  <img alt="blue/green" src="./resources/blue_green.svg" />
+</p>
+
+Now the resources involved in the blue/green deployments are as follows:
+
+1. Public service (that serves traffic to end users)
+2. Test service (for verification purposes)
+3. Deployment
+
+After applying all the files (in src tha are prefixed with **bluegreen**), we should be seeing something along this lines:
+
+```bash
+kubectl get all
+NAME                                  READY   STATUS    RESTARTS   AGE
+pod/frontend-5d669c59db-qrq4q         1/1     Running   0          2m15s
+
+NAME                    TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+service/frontend        LoadBalancer   10.110.179.2     localhost     80:31253/TCP     1s
+service/kubernetes      ClusterIP      10.96.0.1        <none>        443/TCP          6d17h
+
+NAME                             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/frontend         1/1     1            1           2m15s
+
+NAME                                        DESIRED   CURRENT   READY   AGE
+replicaset.apps/frontend-5d669c59db         1         1         1       2m15s
+```
+
+Now on both ports for our LoadBalancer services (80 and 8000), we should be seeing traffic:
+
+```html
+ http GET http://localhost
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Connection: keep-alive
+Content-Length: 612
+Content-Type: text/html
+Date: Sun, 31 May 2020 07:43:17 GMT
+ETag: "5d52db33-264"
+Last-Modified: Tue, 13 Aug 2019 15:45:55 GMT
+Server: nginx/1.16.1
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+and the test one:
+
+```html
+http GET http://localhost:8000
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Connection: keep-alive
+Content-Length: 612
+Content-Type: text/html
+Date: Sun, 31 May 2020 07:43:47 GMT
+ETag: "5d52db33-264"
+Last-Modified: Tue, 13 Aug 2019 15:45:55 GMT
+Server: nginx/1.16.1
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+All good so far. So all the traffic at the moment is going to the `blue` (test as well). Now we can also apply our `green` test service and deployment and the check for this should be:
+
+```bash
+kubectl get all
+NAME                                  READY   STATUS    RESTARTS   AGE
+pod/frontend-5d669c59db-qrq4q         1/1     Running   0          15m
+pod/frontend-green-74d89c5948-8gfps   1/1     Running   0          17m
+
+NAME                          TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+service/frontend              LoadBalancer   10.110.179.2     localhost     80:31253/TCP     13m
+service/frontend-test         LoadBalancer   10.108.128.243   localhost     8000:30499/TCP   13m
+service/frontend-test-green   LoadBalancer   10.100.76.22     localhost     8001:31496/TCP   2m33s
+service/kubernetes            ClusterIP      10.96.0.1        <none>        443/TCP          6d17h
+
+NAME                             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/frontend         1/1     1            1           15m
+deployment.apps/frontend-green   1/1     1            1           17m
+
+NAME                                        DESIRED   CURRENT   READY   AGE
+replicaset.apps/frontend-5d669c59db         1         1         1       15m
+replicaset.apps/frontend-green-74d89c5948   1         1         1       17m
+```
+
+and when we make a request we should be seeing the following (I manually changed the title within the pod):
+
+```html
+http GET http://localhost:8001
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Connection: keep-alive
+Content-Length: 618
+Content-Type: text/html
+Date: Sun, 31 May 2020 07:52:10 GMT
+ETag: "5ed36095-26a"
+Last-Modified: Sun, 31 May 2020 07:45:25 GMT
+Server: nginx/1.17.10
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx-green!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
+When all is good and tested, we can now change our public service to point to the `green`. Just for clarification, `blue` and `green` are examples to make it relatable to the topic described here. This can be anything that makes sense for the setup you're running (versioning, naming, etc.). To make the traffic point to the green, we can just change the selector `role: blue` to `role: green` (and of course applying the changes) on the public service and we should be seeing this then:
+
+```bash
+# the same change would apply for the test service, but for simplicity sake it is omitted from here
+k apply -f src/bluegreen.green.public.service.yaml
+service/frontend configured
+```
+
+```html
+http GET http://localhost
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Connection: keep-alive
+Content-Length: 618
+Content-Type: text/html
+Date: Sun, 31 May 2020 08:00:16 GMT
+ETag: "5ed36095-26a"
+Last-Modified: Sun, 31 May 2020 07:45:25 GMT
+Server: nginx/1.17.10
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx-green!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+```
